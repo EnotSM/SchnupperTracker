@@ -1,4 +1,16 @@
 (function () {
+  var csrfToken = '';
+  (function() {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta) csrfToken = meta.getAttribute('content');
+  })();
+
+  function csrfHeaders(extra) {
+    var h = extra || {};
+    h['X-CSRF-Token'] = csrfToken;
+    return h;
+  }
+
   function toast(msg) {
     var t = document.createElement("div");
     t.className = "toast";
@@ -54,6 +66,82 @@
     }
   });
 
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".delete-btn");
+    if (!btn) return;
+    var row = btn.closest("[data-id]");
+    if (!row || !confirm("Remove this listing?")) return;
+    var id = row.dataset.id;
+    fetch("/api/save/" + id, { method: "DELETE", headers: csrfHeaders() })
+      .then(function (r) { return r.json(); })
+      .then(function () {
+        row.remove();
+        toast("Removed");
+        if (!document.querySelector("[data-id]")) {
+          var es = document.getElementById("empty-state-template");
+          if (es) {
+            es.classList.remove("hidden");
+            es.id = "empty-state";
+            var filterBar = document.querySelector(".bg-white.rounded-xl.shadow-sm");
+            if (filterBar) filterBar.remove();
+            var table = document.querySelector(".overflow-x-auto");
+            if (table) table.remove();
+          }
+        }
+      })
+      .catch(function () { toast("Error removing"); });
+  });
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".hide-btn");
+    if (!btn) return;
+    var row = btn.closest("[data-id]");
+    if (!row) return;
+    var id = row.dataset.id;
+    var hidden = row.getAttribute("data-hidden") === "1";
+    fetch("/api/save/" + id + "/hide", {
+      method: "PATCH",
+      headers: csrfHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ hidden: !hidden }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function () {
+        row.setAttribute("data-hidden", hidden ? "0" : "1");
+        if (typeof updateHideVisual === "function") {
+          updateHideVisual(row);
+        }
+      })
+      .catch(function () { toast("Error"); });
+  });
+
+  document.addEventListener("focusout", function (e) {
+    var ta = e.target.closest(".note-input");
+    if (!ta) return;
+    clearTimeout(ta._timer);
+    saveNote(ta);
+  });
+
+  document.addEventListener("input", function (e) {
+    var ta = e.target.closest(".note-input");
+    if (!ta) return;
+    clearTimeout(ta._timer);
+    ta._timer = setTimeout(function () { saveNote(ta); }, 2000);
+  });
+
+  function saveNote(ta) {
+    var row = ta.closest("[data-id]");
+    if (!row) return;
+    var id = row.dataset.id;
+    var note = ta.value;
+    fetch("/api/save/" + id + "/note", {
+      method: "PATCH",
+      headers: csrfHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ note: note }),
+    }).then(function (r) { return r.json(); }).then(function () {
+      toast("Note saved");
+    }).catch(function () {});
+  }
+
   function professionSearch() {
     var input = document.getElementById("profession-input");
     var hidden = document.getElementById("profession-id");
@@ -62,7 +150,7 @@
     if (!input || !dropdown || !hidden || !tags) return;
 
     var professions = window.PROFESSIONS || [];
-    var selectedType = window.SELECTED_TYPE || 'schnupper';
+    var selectedType = window.SELECTED_TYPE !== undefined ? window.SELECTED_TYPE : 'schnupper';
     var selected = {};
 
     function getSelectedNames() {
@@ -213,7 +301,7 @@
     if (isSaved) {
       fetch("/api/unsave", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: csrfHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ listing_id: card.dataset.id }),
       })
         .then(function (r) { return r.json(); })
@@ -243,7 +331,7 @@
 
       fetch("/api/save", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: csrfHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
       })
         .then(function (r) { return r.json(); })
@@ -259,90 +347,6 @@
         })
         .catch(function () { toast("Error saving"); });
     }
-  });
-
-  var deleteBtns = document.querySelectorAll(".delete-btn");
-  deleteBtns.forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var card = btn.closest("[data-id]");
-      if (!card || !confirm("Remove this listing?")) return;
-      var id = card.dataset.id;
-
-      fetch("/api/save/" + id, { method: "DELETE" })
-        .then(function (r) { return r.json(); })
-        .then(function () {
-          card.remove();
-          toast("Removed");
-          if (!document.querySelector("[data-id]")) {
-            location.reload();
-          }
-        })
-        .catch(function () { toast("Error removing"); });
-    });
-  });
-
-  var statusSelects = document.querySelectorAll(".status-select");
-  statusSelects.forEach(function (sel) {
-    sel.addEventListener("change", function () {
-      var card = sel.closest("[data-id]");
-      if (!card) return;
-      var id = card.dataset.id;
-      var status = sel.value;
-
-      fetch("/api/save/" + id + "/status", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: status }),
-      })
-        .then(function () {
-          toast("Status updated");
-          location.reload();
-        })
-        .catch(function () { toast("Error updating status"); });
-    });
-  });
-
-  var noteInputs = document.querySelectorAll(".note-input");
-  noteInputs.forEach(function (ta) {
-    var timer;
-
-    function saveNote() {
-      var card = ta.closest("[data-id]");
-      if (!card) return;
-      var id = card.dataset.id;
-      var note = ta.value;
-
-      fetch("/api/save/" + id + "/note", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ note: note }),
-      }).then(function (r) { return r.json(); }).then(function () {
-        toast("Note saved");
-      }).catch(function () {});
-    }
-
-    ta.addEventListener("blur", saveNote);
-    ta.addEventListener("input", function () {
-      clearTimeout(timer);
-      timer = setTimeout(saveNote, 2000);
-    });
-  });
-
-  document.addEventListener("click", function (e) {
-    var btn = e.target.closest(".mute-btn");
-    if (!btn) return;
-    var card = btn.closest("[data-id]");
-    if (!card) return;
-    var id = card.dataset.id;
-    var muted = card.getAttribute("data-muted") === "1";
-
-    fetch("/api/save/" + id + "/mute", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ muted: !muted }),
-    })
-      .then(function () { location.reload(); })
-      .catch(function () { toast("Error"); });
   });
 
   var searchForm = document.querySelector("form[action='/']");

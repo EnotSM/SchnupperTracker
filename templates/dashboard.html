@@ -8,122 +8,295 @@
     <a href="/" class="text-teal-500 hover:text-teal-600 text-sm font-medium transition-colors">&larr; Back to search</a>
   </div>
 
-  {% set tabs = [
-    ('', 'All'),
-    ('new', 'New'),
-    ('sent', 'Sent'),
-    ('waiting', 'Waiting'),
-    ('rejection', 'Rejection'),
-    ('success', 'Success'),
-  ] %}
-
-  <div class="flex flex-wrap gap-2 mb-6">
-    {% for val, label in tabs %}
-      <a href="/dashboard{% if val %}?status={{ val }}{% endif %}"
-         class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
-         {% if current_status == val %}
-           bg-teal-500 text-white
-         {% else %}
-           bg-white border border-gray-200 text-gray-600 hover:bg-gray-50
-         {% endif %}">
-        {{ label }}
-      </a>
-    {% endfor %}
+  {% if listings %}
+  {% set status_colors = {
+    'new': 'bg-gray-100 text-gray-800',
+    'sent': 'bg-blue-100 text-blue-800',
+    'waiting': 'bg-yellow-100 text-yellow-800',
+    'rejection': 'bg-red-100 text-red-800',
+    'success': 'bg-green-100 text-green-800',
+  } %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-4 flex flex-wrap gap-3 items-center">
+    <select id="filter-type" class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
+      <option value="">All types</option>
+      <option value="schnupper">Schnupperlehre</option>
+      <option value="lehrstelle">Lehrstelle</option>
+    </select>
+    <select id="filter-status" class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
+      <option value="">All statuses</option>
+      <option value="new" {{ 'selected' if current_status == 'new' else '' }}>New</option>
+      <option value="sent" {{ 'selected' if current_status == 'sent' else '' }}>Sent</option>
+      <option value="waiting" {{ 'selected' if current_status == 'waiting' else '' }}>Waiting</option>
+      <option value="rejection" {{ 'selected' if current_status == 'rejection' else '' }}>Rejection</option>
+      <option value="success" {{ 'selected' if current_status == 'success' else '' }}>Success</option>
+    </select>
+    <input id="filter-search" type="text" placeholder="Search company or profession..." class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 min-w-[200px] flex-1">
+    <span id="row-count" class="text-xs text-gray-400 ml-auto">{{ listings|length }} rows</span>
   </div>
 
-  {% if listings %}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {% for item in listings %}
-        {% set status_colors = {
-          'new': 'bg-gray-100 text-gray-800',
-          'sent': 'bg-blue-100 text-blue-800',
-          'waiting': 'bg-yellow-100 text-yellow-800',
-          'rejection': 'bg-red-100 text-red-800',
-          'success': 'bg-green-100 text-green-800',
-        } %}
-        {% set muted = item.muted %}
-        <div class="rounded-xl border shadow-sm p-5 transition-all duration-200 relative {% if muted %}bg-gray-50 border-gray-100 opacity-60{% else %}bg-white border-gray-200{% endif %}" data-id="{{ item.id }}" data-muted="{{ '1' if muted else '0' }}">
-          <div class="flex justify-between items-start mb-1">
-            <h3 class="text-lg font-bold leading-tight pr-8 {% if muted %}text-gray-400{% else %}text-gray-900{% endif %}">{{ item.title }}</h3>
-            <button class="delete-btn p-1.5 rounded-full hover:bg-red-50 transition-colors flex-shrink-0" title="Remove">
-              <svg class="w-5 h-5 text-gray-400 hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-              </svg>
-            </button>
-          </div>
-          <div class="flex items-center gap-2 mb-2">
-            <span class="status-badge text-xs font-medium px-2 py-0.5 rounded-full {{ status_colors.get(item.status, 'bg-gray-100 text-gray-800') }}">
-              {{ item.status|capitalize }}
-            </span>
-          </div>
-          <p class="text-sm font-medium {% if muted %}text-teal-400{% else %}text-teal-600{% endif %} mb-1">{{ item.company }}</p>
-          {% if item.address %}
-            <p class="text-xs {% if muted %}text-gray-300{% else %}text-gray-500{% endif %} mb-3">{{ item.address }}</p>
-          {% endif %}
-
-          <div class="flex items-center gap-2 mb-3">
-            <span class="text-xs {% if muted %}text-gray-300{% else %}text-gray-400{% endif %}">Status:</span>
-            <select class="status-select text-xs rounded-lg border px-2 py-1 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none {% if muted %}bg-gray-100 border-gray-100 text-gray-400{% else %}bg-white border-gray-200{% endif %}">
-              <option value="new" {{ 'selected' if item.status == 'new' else '' }}>New</option>
-              <option value="sent" {{ 'selected' if item.status == 'sent' else '' }}>Sent</option>
-              <option value="waiting" {{ 'selected' if item.status == 'waiting' else '' }}>Waiting</option>
-              <option value="rejection" {{ 'selected' if item.status == 'rejection' else '' }}>Rejection</option>
-              <option value="success" {{ 'selected' if item.status == 'success' else '' }}>Success</option>
-            </select>
-          </div>
-
-          <div class="mb-3">
-            <textarea class="note-input w-full text-xs border rounded-lg px-2 py-1.5 resize-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none {% if muted %}bg-gray-100 border-gray-100 text-gray-400{% else %}bg-white border-gray-200{% endif %}"
-                      rows="2" placeholder="Add a note...">{{ item.note }}</textarea>
-          </div>
-
-          <div class="flex flex-wrap gap-1.5 pt-2 border-t {% if muted %}border-gray-100{% else %}border-gray-100{% endif %}">
-            {% if item.email %}
-              <button class="copy-btn text-xs {% if muted %}bg-gray-200 text-gray-400{% else %}bg-gray-100 hover:bg-gray-200 text-gray-700{% endif %} px-2 py-1 rounded transition-colors"
-                      data-clipboard="{{ item.email }}" data-label="Email">
-                Copy email
-              </button>
-            {% endif %}
-            {% if item.phone %}
-              <button class="copy-btn text-xs {% if muted %}bg-gray-200 text-gray-400{% else %}bg-gray-100 hover:bg-gray-200 text-gray-700{% endif %} px-2 py-1 rounded transition-colors"
-                      data-clipboard="{{ item.phone }}" data-label="Phone">
-                Copy phone
-              </button>
-            {% endif %}
-            {% if item.website %}
-              <button class="copy-btn text-xs {% if muted %}bg-gray-200 text-gray-400{% else %}bg-gray-100 hover:bg-gray-200 text-gray-700{% endif %} px-2 py-1 rounded transition-colors"
-                      data-clipboard="{{ item.website }}" data-label="Website">
-                Copy website
-              </button>
-            {% endif %}
-          </div>
-          {% if item.listing_type == 'lehrstelle' and item.last_updated %}
-            {% set date_parts = item.last_updated[:10].split('-') %}
-            <div class="absolute bottom-3 left-3">
-              <span class="text-xs text-gray-400">Aktualisiert: {{ date_parts[2] }}.{{ date_parts[1] }}.{{ date_parts[0] }}</span>
-            </div>
-          {% endif %}
-          <div class="absolute bottom-3 right-3">
+  <div class="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-gray-50 border-b border-gray-300 select-none">
+          <th class="sortable px-2 py-3 text-left font-semibold text-gray-600 cursor-pointer w-10" data-col="idx" title="Sort by row"># <span class="sort-arrow"></span></th>
+          <th class="sortable px-3 py-3 text-left font-semibold text-gray-600 cursor-pointer" data-col="profession" title="Sort by profession">Firma &amp; Beruf <span class="sort-arrow"></span></th>
+          <th class="sortable px-3 py-3 text-left font-semibold text-gray-600 cursor-pointer w-20" data-col="type" title="Sort by type">Typ <span class="sort-arrow"></span></th>
+          <th class="sortable px-3 py-3 text-left font-semibold text-gray-600 cursor-pointer" data-col="status" title="Sort by status">Status <span class="sort-arrow"></span></th>
+          <th class="sortable px-3 py-3 text-left font-semibold text-gray-600 cursor-pointer" data-col="created" title="Sort by date added">Datum <span class="sort-arrow"></span></th>
+          <th class="px-3 py-3 text-left font-semibold text-gray-600">Kontakt</th>
+          <th class="px-3 py-3 text-left font-semibold text-gray-600 min-w-[180px]">Notizen</th>
+          <th class="px-3 py-3 text-center font-semibold text-gray-600 w-16"></th>
+        </tr>
+      </thead>
+      <tbody id="table-body">
+        {% for item in listings %}
+        {% set hidden = item.muted %}
+        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors{% if hidden %} opacity-50 bg-gray-50{% endif %}"
+            data-id="{{ item.id }}"
+            data-idx="{{ loop.index }}"
+            data-hidden="{{ '1' if hidden else '0' }}"
+            data-listing-type="{{ item.listing_type }}"
+            data-status="{{ item.status }}"
+            data-company="{{ item.company|lower }}"
+            data-profession="{{ item.title|lower }}"
+            data-created="{{ item.created_at }}">
+          <td class="px-2 py-2.5 text-xs text-gray-400 align-top font-mono">{{ loop.index }}</td>
+          <td class="px-3 py-2.5 align-top">
+            <div class="font-medium {% if hidden %}text-gray-400{% else %}text-gray-900{% endif %} company-text">{{ item.company }}</div>
+            <div class="text-xs {% if hidden %}text-gray-300{% else %}text-gray-500{% endif %} leading-tight mt-0.5 title-text">{{ item.title }}</div>
+          </td>
+          <td class="px-3 py-2.5 align-top">
             {% if item.listing_type == 'lehrstelle' %}
               <span class="inline-block text-xs font-bold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">L</span>
             {% else %}
               <span class="inline-block text-xs font-bold text-teal-600 bg-teal-50 border border-teal-200 rounded px-1.5 py-0.5">S</span>
             {% endif %}
-          </div>
-        </div>
-      {% endfor %}
-    </div>
+          </td>
+          <td class="px-3 py-2.5 align-top">
+            <select class="status-select text-xs rounded border px-2 py-1 outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 {{ status_colors[item.status] }}{% if hidden %} opacity-60{% endif %}">
+              <option value="new" data-color="bg-gray-100 text-gray-800" {{ 'selected' if item.status == 'new' else '' }}>New</option>
+              <option value="sent" data-color="bg-blue-100 text-blue-800" {{ 'selected' if item.status == 'sent' else '' }}>Sent</option>
+              <option value="waiting" data-color="bg-yellow-100 text-yellow-800" {{ 'selected' if item.status == 'waiting' else '' }}>Waiting</option>
+              <option value="rejection" data-color="bg-red-100 text-red-800" {{ 'selected' if item.status == 'rejection' else '' }}>Rejection</option>
+              <option value="success" data-color="bg-green-100 text-green-800" {{ 'selected' if item.status == 'success' else '' }}>Success</option>
+            </select>
+            {% if item.listing_type == 'lehrstelle' and item.last_updated %}
+              {% set dp = item.last_updated[:10].split('-') %}
+              <div class="text-xs text-gray-400 mt-1">Aktualisiert: {{ dp[2] }}.{{ dp[1] }}.{{ dp[0] }}</div>
+            {% endif %}
+          </td>
+          <td class="px-3 py-2.5 align-top text-xs {% if hidden %}text-gray-300{% else %}text-gray-400{% endif %} date-text">
+            {% if item.created_at %}
+              {% set ca = item.created_at[:10].split('-') %}
+              <span>{{ ca[2] }}.{{ ca[1] }}.{{ ca[0] }}</span>
+            {% endif %}
+          </td>
+          <td class="px-3 py-2.5 align-top">
+            <div class="flex flex-col gap-1">
+              {% if item.email %}
+                <button class="copy-btn text-xs text-left text-gray-600 hover:text-teal-600 transition-colors truncate max-w-[160px]" data-clipboard="{{ item.email }}" title="{{ item.email }}">{{ item.email }}</button>
+              {% endif %}
+              {% if item.phone %}
+                <button class="copy-btn text-xs text-left text-gray-600 hover:text-teal-600 transition-colors" data-clipboard="{{ item.phone }}" title="{{ item.phone }}">{{ item.phone }}</button>
+              {% endif %}
+              {% if item.website %}
+                <button class="copy-btn text-xs text-left text-gray-600 hover:text-teal-600 transition-colors truncate max-w-[160px]" data-clipboard="{{ item.website }}" title="{{ item.website }}">{{ item.website }}</button>
+              {% endif %}
+              {% if not item.email and not item.phone and not item.website %}
+                <span class="text-xs text-gray-300">&mdash;</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="px-3 py-2.5 align-top">
+            <textarea class="note-input w-full text-xs border border-gray-200 rounded px-2 py-1 resize-none overflow-hidden outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500{% if hidden %} bg-gray-100{% endif %}"
+                      rows="1" placeholder="Add note...">{{ item.note }}</textarea>
+          </td>
+          <td class="px-3 py-2.5 align-top text-center">
+            <div class="flex flex-col gap-1 items-center">
+              <button class="hide-btn text-xs p-1 rounded hover:bg-gray-100 transition-colors" title="{{ 'Show' if hidden else 'Hide' }}">
+                <svg class="w-4 h-4 hide-icon{% if hidden %} text-teal-500{% else %} text-gray-400 hover:text-teal-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {% if hidden %}
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1l22 22"/>
+                  {% else %}
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  {% endif %}
+                </svg>
+              </button>
+              <button class="delete-btn text-xs p-1 rounded hover:bg-red-50 transition-colors" title="Remove">
+                <svg class="w-4 h-4 text-gray-400 hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
   {% else %}
-    <div class="text-center py-16">
-      <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-      </svg>
-      <h2 class="text-xl font-semibold text-gray-700 mb-2">No saved listings yet</h2>
-      <p class="text-gray-500 mb-4">Start searching and save interesting opportunities!</p>
-      <a href="/" class="inline-block bg-teal-500 hover:bg-teal-600 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors">
-        Search now
-      </a>
-    </div>
+  <div id="empty-state" class="text-center py-16">
+    <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+    </svg>
+    <h2 class="text-xl font-semibold text-gray-700 mb-2">No saved listings yet</h2>
+    <p class="text-gray-500 mb-4">Start searching and save interesting opportunities!</p>
+    <a href="/" class="inline-block bg-teal-500 hover:bg-teal-600 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors">Search now</a>
+  </div>
   {% endif %}
+  <div id="empty-state-template" class="hidden text-center py-16">
+    <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+    </svg>
+    <h2 class="text-xl font-semibold text-gray-700 mb-2">No saved listings yet</h2>
+    <p class="text-gray-500 mb-4">Start searching and save interesting opportunities!</p>
+    <a href="/" class="inline-block bg-teal-500 hover:bg-teal-600 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors">Search now</a>
+  </div>
 </div>
+
+<script>
+(function() {
+  var sortCol = '';
+  var sortDir = 1;
+
+  function autoResize(ta) {
+    ta.style.height = 'auto';
+    ta.style.height = Math.max(ta.scrollHeight, 24) + 'px';
+  }
+  document.querySelectorAll('.note-input').forEach(autoResize);
+  document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('note-input')) autoResize(e.target);
+  });
+
+  function updateHideVisual(row) {
+    var hidden = row.getAttribute('data-hidden') === '1';
+    if (hidden) {
+      row.classList.add('opacity-50', 'bg-gray-50');
+    } else {
+      row.classList.remove('opacity-50', 'bg-gray-50');
+    }
+    var company = row.querySelector('.company-text');
+    if (company) {
+      if (hidden) { company.classList.remove('text-gray-900'); company.classList.add('text-gray-400'); }
+      else { company.classList.remove('text-gray-400'); company.classList.add('text-gray-900'); }
+    }
+    var title = row.querySelector('.title-text');
+    if (title) {
+      if (hidden) { title.classList.remove('text-gray-500'); title.classList.add('text-gray-300'); }
+      else { title.classList.remove('text-gray-300'); title.classList.add('text-gray-500'); }
+    }
+    var date = row.querySelector('.date-text');
+    if (date) {
+      if (hidden) { date.classList.remove('text-gray-400'); date.classList.add('text-gray-300'); }
+      else { date.classList.remove('text-gray-300'); date.classList.add('text-gray-400'); }
+    }
+    var sel = row.querySelector('.status-select');
+    if (sel) sel.classList.toggle('opacity-60', hidden);
+    var note = row.querySelector('.note-input');
+    if (note) note.classList.toggle('bg-gray-100', hidden);
+    var btn = row.querySelector('.hide-btn');
+    if (btn) btn.setAttribute('title', hidden ? 'Show' : 'Hide');
+    var icon = row.querySelector('.hide-icon');
+    if (icon) {
+      if (hidden) { icon.classList.remove('text-gray-400', 'hover:text-teal-500'); icon.classList.add('text-teal-500'); }
+      else { icon.classList.remove('text-teal-500'); icon.classList.add('text-gray-400', 'hover:text-teal-500'); }
+      var paths = icon.querySelectorAll('path');
+      if (paths.length >= 2) {
+        if (hidden) {
+          paths[0].setAttribute('d', 'M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24');
+          paths[1].setAttribute('d', 'M1 1l22 22');
+        } else {
+          paths[0].setAttribute('d', 'M15 12a3 3 0 11-6 0 3 3 0 016 0z');
+          paths[1].setAttribute('d', 'M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z');
+        }
+      }
+    }
+  }
+
+  var tableBody = document.getElementById('table-body');
+  if (!tableBody) return;
+  tableBody.addEventListener('change', function(e) {
+    var sel = e.target;
+    if (!sel.classList.contains('status-select')) return;
+    var color = sel.options[sel.selectedIndex].getAttribute('data-color') || '';
+    ['bg-gray-100','text-gray-800','bg-blue-100','text-blue-800','bg-yellow-100','text-yellow-800','bg-red-100','text-red-800','bg-green-100','text-green-800'].forEach(function(c) { sel.classList.remove(c); });
+    color.split(' ').forEach(function(c) { if (c) sel.classList.add(c); });
+    var row = sel.closest('[data-id]');
+    row.dataset.status = sel.value;
+    var csrf = document.querySelector('meta[name="csrf-token"]');
+    var token = csrf ? csrf.getAttribute('content') : '';
+    fetch('/api/save/' + row.dataset.id + '/status', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+      body: JSON.stringify({ status: sel.value }),
+    }).catch(function() { toast('Error updating status'); });
+  });
+
+  function getVal(row, col) {
+    if (col === 'idx') return parseInt(row.dataset.idx) || 0;
+    if (col === 'profession') return row.dataset.profession || '';
+    if (col === 'type') return row.dataset.listingType || '';
+    if (col === 'status') {
+      var sel = row.querySelector('.status-select');
+      return sel ? sel.value : '';
+    }
+    if (col === 'created') return row.dataset.created || '';
+    return '';
+  }
+
+  function sortTable(col) {
+    if (col === sortCol) { sortDir *= -1; }
+    else { sortCol = col; sortDir = 1; }
+    var tbody = document.getElementById('table-body');
+    var rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.sort(function(a, b) {
+      var va = getVal(a, col);
+      var vb = getVal(b, col);
+      if (col === 'idx') return (va - vb) * sortDir;
+      return String(va).localeCompare(String(vb)) * sortDir;
+    });
+    rows.forEach(function(r) { tbody.appendChild(r); });
+    document.querySelectorAll('.sort-arrow').forEach(function(a) { a.textContent = ''; });
+    var arrows = document.querySelectorAll('.sortable[data-col="' + col + '"] .sort-arrow');
+    arrows.forEach(function(a) { a.textContent = sortDir === 1 ? ' \u25B2' : ' \u25BC'; });
+    filterTable();
+  }
+
+  function filterTable() {
+    var typeVal = document.getElementById('filter-type').value;
+    var statusVal = document.getElementById('filter-status').value;
+    var searchVal = document.getElementById('filter-search').value.toLowerCase();
+    var rows = document.querySelectorAll('#table-body tr');
+    var visible = 0;
+    rows.forEach(function(r) {
+      var show = true;
+      if (typeVal && r.dataset.listingType !== typeVal) show = false;
+      if (statusVal && r.dataset.status !== statusVal) show = false;
+      if (searchVal) {
+        var text = (r.dataset.company + ' ' + r.dataset.profession).toLowerCase();
+        if (text.indexOf(searchVal) === -1) show = false;
+      }
+      r.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    document.getElementById('row-count').textContent = visible + ' row' + (visible !== 1 ? 's' : '');
+  }
+
+  document.querySelectorAll('.sortable').forEach(function(th) {
+    th.addEventListener('click', function() {
+      sortTable(this.dataset.col);
+    });
+  });
+
+  document.getElementById('filter-type').addEventListener('change', filterTable);
+  document.getElementById('filter-status').addEventListener('change', filterTable);
+  document.getElementById('filter-search').addEventListener('input', filterTable);
+
+  sortTable('idx');
+  window.updateHideVisual = updateHideVisual;
+})();
+</script>
 {% endblock %}

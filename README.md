@@ -46,10 +46,13 @@ Open http://localhost:5000
 
 ```
 CRUD/
-├── app.py                 # routes, API, caching
-├── config.py              # settings
+├── app.py                 # routes, API, caching, security
+├── config.py              # settings (secret key, session, cache)
+├── requirements.txt
+├── .secret_key            # auto-generated, gitignored
+├── professions_cache.json # 24h API cache, gitignored
 ├── templates/
-│   ├── base.html          # nav, flash, footer
+│   ├── base.html          # nav, flash, footer, CSP meta
 │   ├── index.html         # search + results
 │   ├── dashboard.html     # saved listings with statuses
 │   ├── login.html
@@ -57,25 +60,36 @@ CRUD/
 ├── static/
 │   ├── app.js             # all frontend logic
 │   └── style.css
-└── AGENTS.md              # AI assistant docs
+└── AGENTS.md              # AI assistant notes (local only)
 ```
 
-## API Routes
+## Security
 
-| Route | Description |
-|-------|-------------|
-| `POST /api/save` | save a listing |
-| `POST /api/unsave` | remove by listing_id |
-| `DELETE /api/save/<id>` | remove by DB id |
-| `PATCH /api/save/<id>/status` | update status |
-| `PATCH /api/save/<id>/note` | update note |
+- CSRF protection on all mutation endpoints (header + form field)
+- Rate limiting on login (5 attempts per 5 minutes per IP)
+- Session cookies: `HttpOnly`, `SameSite=Lax`, signed with persisted key
+- Content-Security-Policy headers
+- Passwords hashed via `werkzeug.security` (pbkdf2:sha256)
+- SQL injection prevented via parameterized queries
+- Jinja2 auto-escape for XSS prevention
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FLASK_DEBUG` | `1` | Enable debug mode |
+| `PORT` | `5000` | Server port |
+| `API_BASE_URL` | `https://admin.berufswahlportal.ch/wp-json/biz/v1` | API endpoint |
+| `DATABASE_FILE` | `schnupper_tracker.db` | SQLite filename |
+| `CACHE_DURATION` | `86400` | Professions cache TTL (seconds) |
+| `RESULT_CACHE_TTL` | `300` | In-memory result cache TTL (seconds) |
+| `SESSION_COOKIE_NAME` | `schnupper_session` | Session cookie name |
 
 ## Caveats
 
-- `SECRET_KEY` is generated on every start — sessions reset on restart
-- debug mode on, no CSRF
-- professions cached to file for 24 hours
-- random results cached in memory for 5 minutes
-- API timeout: 8 seconds
+- Tailwind via CDN (~3MB in dev, no purged build)
+- No dashboard pagination (all rows loaded client-side)
+- No email/notification system
+- No automated tests
 
 Not affiliated with canton Zürich. Powered by [`berufswahl.zh.ch`](https://berufswahl.zh.ch).

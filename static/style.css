@@ -16,6 +16,16 @@ body {
 .status-select {
   cursor: pointer;
 }
+.status-select.bg-gray-100 { background-color: #f3f4f6; }
+.status-select.text-gray-800 { color: #1f2937; }
+.status-select.bg-blue-100 { background-color: #dbeafe; }
+.status-select.text-blue-800 { color: #1e40af; }
+.status-select.bg-yellow-100 { background-color: #fef9c3; }
+.status-select.text-yellow-800 { color: #92400e; }
+.status-select.bg-red-100 { background-color: #fee2e2; }
+.status-select.text-red-800 { color: #991b1b; }
+.status-select.bg-green-100 { background-color: #dcfce7; }
+.status-select.text-green-800 { color: #166534; }
 
 textarea.note-input {
   min-height: 2.5rem;

@@ -1,6 +1,8 @@
 import json
 import os
+import random
 import re
+import secrets
 import time
 import unicodedata
 from functools import wraps
@@ -23,9 +25,65 @@ import config
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
-app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.config["TEMPLATES_AUTO_RELOAD"] = config.DEBUG
+app.config["SESSION_COOKIE_NAME"] = config.SESSION_COOKIE_NAME
+app.config["SESSION_COOKIE_SAMESITE"] = config.SESSION_COOKIE_SAMESITE
+app.config["SESSION_COOKIE_HTTPONLY"] = config.SESSION_COOKIE_HTTPONLY
+app.config["SESSION_COOKIE_SECURE"] = config.SESSION_COOKIE_SECURE
+app.config["PERMANENT_SESSION_LIFETIME"] = config.PERMANENT_SESSION_LIFETIME
 
 _result_cache = {}
+_login_attempts = {}
+
+
+@app.after_request
+def add_security_headers(response):
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; "
+        "script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; "
+        "style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self' https://admin.berufswahlportal.ch; "
+        "form-action 'self'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none'",
+    )
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return response
+
+
+@app.before_request
+def ensure_csrf():
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_hex(32)
+
+
+@app.before_request
+def cleanup_rate_limits():
+    _cleanup_rate_limits()
+
+
+@app.context_processor
+def inject_csrf():
+    return {"csrf_token": session.get("csrf_token", "")}
+
+
+def csrf_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if request.method in ("POST", "PATCH", "DELETE", "PUT"):
+            token = (
+                request.headers.get("X-CSRF-Token", "")
+                or request.form.get("csrf_token", "")
+            )
+            if not token or token != session.get("csrf_token", ""):
+                return jsonify({"error": "CSRF token missing or invalid"}), 403
+        return f(*args, **kwargs)
+
+    return decorated
 
 
 def _cached(key, ttl=300):
@@ -99,6 +157,25 @@ def init_db():
     db.commit()
 
 
+def _rate_limit(key, max_attempts=5, window=300):
+    now = time.time()
+    entry = _login_attempts.get(key, [])
+    entry = [t for t in entry if now - t < window]
+    if len(entry) >= max_attempts:
+        return False
+    entry.append(now)
+    _login_attempts[key] = entry
+    return True
+
+
+def _cleanup_rate_limits():
+    now = time.time()
+    for k in list(_login_attempts.keys()):
+        _login_attempts[k] = [t for t in _login_attempts[k] if now - t < 300]
+        if not _login_attempts[k]:
+            del _login_attempts[k]
+
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -117,7 +194,7 @@ def api_get(endpoint, params=None):
         resp = requests.get(url, headers=headers, params=params, timeout=8)
         resp.raise_for_status()
         return resp.json()
-    except requests.RequestException as e:
+    except (requests.RequestException, json.JSONDecodeError) as e:
         return {"error": str(e), "data": [], "total": 0, "totalPages": 0}
 
 
@@ -127,7 +204,8 @@ def load_professions():
         try:
             age = time.time() - os.path.getmtime(cache_file)
             if age < config.CACHE_DURATION:
-                return json.load(open(cache_file))
+                with open(cache_file) as f:
+                    return json.load(f)
         except (json.JSONDecodeError, OSError):
             pass
 
@@ -137,7 +215,12 @@ def load_professions():
     variants = data
 
     data2 = api_get("professions", {"per_page": 310})
-    base_list = data2.get("items", []) if not isinstance(data2, dict) or "error" not in data2 else []
+    if isinstance(data2, dict) and "error" not in data2:
+        base_list = data2.get("items", [])
+    elif isinstance(data2, list):
+        base_list = data2
+    else:
+        base_list = []
 
     counts_by_keyword = {}
     for i in base_list:
@@ -145,12 +228,13 @@ def load_professions():
         sd = i.get("swissdocs", [{}])[0] if i.get("swissdocs") else {}
         keyword = title.split("/")[0].strip()
         per_year = sd.get("countApprenticeshipsPerYear")
-        appr_2026 = 0
+        appr = 0
         if isinstance(per_year, dict):
-            appr_2026 = per_year.get("2026", 0)
+            vals = [v for v in per_year.values() if isinstance(v, (int, float))]
+            appr = max(vals) if vals else 0
         counts_by_keyword[keyword] = {
             "trial": sd.get("countTrialApprenticeships", 0),
-            "appr": appr_2026,
+            "appr": appr,
         }
 
     result = []
@@ -168,13 +252,16 @@ def load_professions():
         })
 
     try:
-        json.dump(result, open(cache_file, "w"))
+        with open(cache_file, "w") as f:
+            json.dump(result, f)
     except OSError:
         pass
     return result
 
 
 def extract_keyword(title):
+    if not title or not title.strip():
+        return ""
     kw = title.split("/")[0].split("(")[0].strip()
     return kw if len(kw) > 2 else title.split()[0] if title.split() else title
 
@@ -333,8 +420,17 @@ def search_listings(listing_type, profession, location, page=1):
     }
 
 
-def format_address(item):
-    return item.get("address", "")
+def _diversify(items, max_per_title=3):
+    seen = {}
+    result = []
+    for it in items:
+        key = it["swissdoc_title"]
+        if key not in seen:
+            seen[key] = 0
+        if seen[key] < max_per_title:
+            result.append(it)
+            seen[key] += 1
+    return result
 
 
 def build_page_url(params_dict, page):
@@ -373,7 +469,10 @@ def index():
         listing_type = request.args.get("type", "schnupper") if request.args.get("type") else ""
         profession = request.args.get("profession", "")
         location = request.args.get("location", "")
-        page = int(request.args.get("page", 1))
+        try:
+            page = int(request.args.get("page", 1))
+        except (ValueError, TypeError):
+            page = 1
         if profession or location:
             query_params = {
                 "type": listing_type or "schnupper",
@@ -384,8 +483,6 @@ def index():
             results = search_listings(listing_type or "schnupper", profession, location, page)
 
     if results is None:
-        import random
-
         def extract_items(raw, listing_type):
             if isinstance(raw, dict) and "error" not in raw:
                 return [normalize_item(it, listing_type) for it in (raw.get("items") or [])]
@@ -407,15 +504,7 @@ def index():
             elif listing_type == "schnupper":
                 raw = api_get("trial-apprenticeships", {"per_page": 500, "page": random.randint(1, 90)})
                 items = extract_items(raw, "schnupper")
-                seen = {}
-                diverse = []
-                for it in items:
-                    key = it["swissdoc_title"]
-                    if key not in seen:
-                        seen[key] = 0
-                    if seen[key] < 3:
-                        diverse.append(it)
-                        seen[key] += 1
+                diverse = _diversify(items, 3)
                 results = {"data": diverse[:30], "total": 0, "totalPages": 0, "page": 1}
                 query_params = {"type": "schnupper", "profession": "", "location": "", "page": 1}
             else:
@@ -423,15 +512,7 @@ def index():
                 lehr_raw = api_get("search", {"per_page": 100, "page": random.randint(1, 40), "type": "apprenticeship"})
                 combined = []
                 schnupper_items = extract_items(schnupper_raw, "schnupper")
-                seen = {}
-                diverse = []
-                for it in schnupper_items:
-                    key = it["swissdoc_title"]
-                    if key not in seen:
-                        seen[key] = 0
-                    if seen[key] < 2:
-                        diverse.append(it)
-                        seen[key] += 1
+                diverse = _diversify(schnupper_items, 2)
                 combined.extend(diverse[:15])
                 lehr_items = extract_items(lehr_raw, "lehrstelle")
                 random.shuffle(lehr_items)
@@ -485,6 +566,9 @@ def index():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
+        if not request.form.get("csrf_token") or request.form["csrf_token"] != session.get("csrf_token", ""):
+            flash("Session expired. Please try again.")
+            return render_template("register.html")
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         confirm = request.form.get("confirm", "")
@@ -523,6 +607,14 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
+        ip = request.remote_addr or "unknown"
+        if not _rate_limit(f"login:{ip}"):
+            flash("Too many login attempts. Please try again later.")
+            return render_template("login.html")
+
+        if not request.form.get("csrf_token") or request.form["csrf_token"] != session.get("csrf_token", ""):
+            flash("Session expired. Please try again.")
+            return render_template("login.html")
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
@@ -532,6 +624,7 @@ def login():
         if user and check_password_hash(user["password_hash"], password):
             session["user_id"] = user["id"]
             session["user_username"] = user["username"]
+            session.permanent = True
             flash("Welcome back!")
             return redirect(url_for("index"))
         else:
@@ -565,11 +658,13 @@ def dashboard():
             (user_id,),
         ).fetchall()
 
-    return render_template("dashboard.html", listings=rows, current_status=status_filter)
+    listings = [dict(r) for r in rows]
+    return render_template("dashboard.html", listings=listings, current_status=status_filter)
 
 
 @app.route("/api/save", methods=["POST"])
 @login_required
+@csrf_required
 def save_listing():
     data = request.get_json()
     if not data:
@@ -590,7 +685,7 @@ def save_listing():
     if existing:
         return jsonify({"message": "Already saved", "id": existing["id"]}), 200
 
-    address = format_address(data)
+    address = data.get("address", "")
     db.execute(
         """INSERT INTO saved_listings
            (user_id, listing_id, title, company, email, phone, website, address, listing_type, last_updated)
@@ -615,6 +710,7 @@ def save_listing():
 
 @app.route("/api/unsave", methods=["POST"])
 @login_required
+@csrf_required
 def unsave_listing():
     data = request.get_json() or {}
     listing_id = str(data.get("listing_id", ""))
@@ -631,6 +727,7 @@ def unsave_listing():
 
 @app.route("/api/save/<int:save_id>", methods=["DELETE"])
 @login_required
+@csrf_required
 def remove_saved(save_id):
     db = get_db()
     user_id = session["user_id"]
@@ -644,6 +741,7 @@ def remove_saved(save_id):
 
 @app.route("/api/save/<int:save_id>/status", methods=["PATCH"])
 @login_required
+@csrf_required
 def update_status(save_id):
     data = request.get_json()
     status = data.get("status", "new")
@@ -663,6 +761,7 @@ def update_status(save_id):
 
 @app.route("/api/save/<int:save_id>/note", methods=["PATCH"])
 @login_required
+@csrf_required
 def update_note(save_id):
     data = request.get_json()
     note = data.get("note", "")
@@ -677,22 +776,23 @@ def update_note(save_id):
     return jsonify({"message": "Note saved"})
 
 
-@app.route("/api/save/<int:save_id>/mute", methods=["PATCH"])
+@app.route("/api/save/<int:save_id>/hide", methods=["PATCH"])
 @login_required
-def toggle_mute(save_id):
+@csrf_required
+def toggle_hide(save_id):
     data = request.get_json()
-    muted = data.get("muted", False)
+    hidden = data.get("hidden", False)
     db = get_db()
     db.execute(
         "UPDATE saved_listings SET muted = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
-        (1 if muted else 0, save_id, session["user_id"]),
+        (1 if hidden else 0, save_id, session["user_id"]),
     )
     db.commit()
-    return jsonify({"message": "Muted" if muted else "Unmuted"})
+    return jsonify({"message": "Hidden" if hidden else "Visible"})
 
 
 if __name__ == "__main__":
     with app.app_context():
         init_db()
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=config.DEBUG)
