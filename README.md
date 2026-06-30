@@ -1,79 +1,81 @@
 # SchnupperTracker
 
-> Find and track apprenticeships (Schnupperlehren & Lehrstellen) in canton Zürich.
+[![Python](https://img.shields.io/badge/python-3.11-3776AB?logo=python)](https://python.org)
+[![Flask](https://img.shields.io/badge/flask-3.1-000?logo=flask)](https://flask.palletsprojects.com)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-A Flask web app that searches the [`berufswahl.zh.ch`](https://berufswahl.zh.ch) API, lets you save interesting listings, and track your application status.
-
-![Python](https://img.shields.io/badge/python-3.11-teal?style=flat)
-![Flask](https://img.shields.io/badge/flask-3.1-gray?style=flat)
-![Tailwind CSS](https://img.shields.io/badge/tailwind_css-CDN-38bdf8?style=flat)
+Пошук учнівських практик (Schnupperlehren) та навчальних місць (Lehrstellen) у кантоні Цюрих через API `berufswahl.zh.ch`. Збереження цікавих варіантів, зміна статусу, нотатки.
 
 ---
 
-## Features
+## Що вміє
 
-- **Search** — filter by type (Schnupperlehre / Lehrstelle), profession (multi-select), and location
-- **Discover** — random results when no search query is entered
-- **Save** — bookmark listings to your personal list
-- **Track** — update status (new → sent → waiting → rejection → success)
-- **Notes** — add private notes to each listing
-- **Mute** — dim listings you're no longer interested in
+- фільтр по типу (Schnupperlehre / Lehrstelle), професії (мультивибір тегами), локації
+- автокомпліт професій з урахуванням вибраного типу
+- пошук через Ajax — сторінка не перезавантажується
+- випадкові результати, коли немає пошукового запиту (30 шт.)
+- збереження/видалення в особистий список (сердечко на картці)
+- ручна зміна статусу: new → sent → waiting → rejection → success
+- нотатки до кожної позиції (автосейв через 2с або по втраті фокусу)
+- копіювання email / телефону / сайту в буфер
+- відкриття адреси в Google Maps
+- перехід на сторінку оголошення на berufswahl.zh.ch
+- реєстрація + логін (сесії)
+- фільтр збережених по статусу
 
-## Quick Start
+## Старт
 
 ```bash
-# Clone
 git clone https://github.com/EnotSM/SchnupperTracker.git
 cd SchnupperTracker
 
-# Option A: Nix
+# nix
 nix-shell
 
-# Option B: venv
+# або venv
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Run
 python app.py
 ```
 
-Open http://localhost:5000
+Відкрий http://localhost:5000
 
-## Tech Stack
-
-| Layer | Tech |
-|-------|------|
-| Backend | Python 3.11, Flask, SQLite |
-| Frontend | Jinja2, Tailwind CSS (CDN), Vanilla JS |
-| API | `admin.berufswahlportal.ch/wp-json/biz/v1` |
-| Auth | Session-based, Werkzeug password hashing |
-| Dev | Nix shell / venv |
-
-## Project Structure
+## Cтруктура
 
 ```
 CRUD/
-├── app.py                    # Routes, API logic, caching
-├── config.py                 # App configuration
+├── app.py                 # увесь бекенд: маршрути, API, кеш
+├── config.py              # налаштування
 ├── templates/
-│   ├── base.html             # Layout (nav, flash, footer)
-│   ├── index.html            # Main search page
+│   ├── base.html          # навігація, flash, footer
+│   ├── index.html         # головна: пошук + результати
+│   ├── dashboard.html     # збережені зі статусами
 │   ├── login.html
-│   ├── register.html
-│   └── dashboard.html        # Saved listings (CRUD)
+│   └── register.html
 ├── static/
-│   ├── app.js                # All frontend logic
-│   └── style.css             # Custom styles
-└── AGENTS.md                 # AI assistant docs
+│   ├── app.js             # вся фронтенд логіка
+│   └── style.css
+└── AGENTS.md              # доки для AI
 ```
 
-## Caching
+## API роути
 
-- **Professions** — file cache (`professions_cache.json`), TTL: 24h
-- **Random results** — in-memory cache (`_result_cache`), TTL: 5 min
-- **API timeout** — 8 seconds
+| Маршрут | Що робить |
+|---------|-----------|
+| `/api/save` POST | зберегти оголошення |
+| `/api/unsave` POST | видалити по listing_id |
+| `/api/save/<id>` DELETE | видалити по DB id |
+| `/api/save/<id>/status` PATCH | змінити статус |
+| `/api/save/<id>/note` PATCH | зберегти нотатку |
 
-## License
+## Нюанси
 
-Not affiliated with canton Zürich. Powered by [`berufswahl.zh.ch`](https://berufswahl.zh.ch).
+- `SECRET_KEY` генерується заново при кожному запуску — сесії скидаються після рестарту
+- debug mode, немає CSRF
+- professions кешуються у файл на 24 години
+- випадкові результати кешуються в пам'яті на 5 хвилин
+- API timeout 8 секунд
+
+Сайт використовує API [`berufswahl.zh.ch`](https://berufswahl.zh.ch). Не пов'язаний з кантоном Цюрих.
