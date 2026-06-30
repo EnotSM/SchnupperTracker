@@ -1,0 +1,54 @@
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+#profession-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+#profession-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+#profession-dropdown::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.status-select {
+  cursor: pointer;
+}
+
+textarea.note-input {
+  min-height: 2.5rem;
+  transition: border-color 0.15s ease;
+}
+
+.copy-btn:active {
+  transform: scale(0.96);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.toast {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  background: #1f2937;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  z-index: 50;
+  animation: fadeIn 0.2s ease;
+}
+
+@media (max-width: 640px) {
+  .toast {
+    left: 1rem;
+    right: 1rem;
+    text-align: center;
+  }
+}

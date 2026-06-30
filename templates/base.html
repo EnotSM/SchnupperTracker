@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SchnupperTracker - {% block title %}Find Your Apprenticeship{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            teal: {
+              50: '#e6f7f9',
+              100: '#b3e8ef',
+              200: '#80d9e5',
+              300: '#4dcadb',
+              400: '#26bfd1',
+              500: '#0096A9',
+              600: '#007a8a',
+              700: '#006070',
+              800: '#004650',
+              900: '#002c30',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen flex flex-col">
+  <nav class="bg-teal-500 text-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <a href="/" class="flex items-center gap-2 font-bold text-xl tracking-tight">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          SchnupperTracker
+        </a>
+        <div class="flex items-center gap-4 text-sm font-medium">
+          {% if session.user_id %}
+            <a href="/dashboard" class="hover:text-teal-100 transition-colors">My List</a>
+            <span class="text-teal-200 text-xs">{{ session.user_username }}</span>
+            <a href="/logout" class="bg-white text-teal-600 px-3 py-1.5 rounded-lg hover:bg-teal-50 transition-colors">Logout</a>
+          {% else %}
+            <a href="/login" class="hover:text-teal-100 transition-colors">Login</a>
+            <a href="/register" class="bg-white text-teal-600 px-3 py-1.5 rounded-lg hover:bg-teal-50 transition-colors">Register</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        {% for message in messages %}
+          <div class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm" role="alert">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main class="flex-1">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="bg-gray-100 border-t border-gray-200 py-6 mt-12">
+    <div class="max-w-7xl mx-auto px-4 text-center text-sm text-gray-500">
+      SchnupperTracker &mdash; powered by <a href="https://berufswahl.zh.ch" class="text-teal-500 hover:underline" target="_blank">berufswahl.zh.ch</a> API.
+      Not affiliated with the canton of Z&uuml;rich.
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
