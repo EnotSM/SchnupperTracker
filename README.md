@@ -1,95 +1,100 @@
-# SchnupperTracker
+<div align="center">
 
-[![Python](https://img.shields.io/badge/python-3.11-3776AB?logo=python)](https://python.org)
-[![Flask](https://img.shields.io/badge/flask-3.1-000?logo=flask)](https://flask.palletsprojects.com)
+# 🔍 SchnupperTracker
+
+**Discover and track Swiss apprenticeship opportunities — Schnupperlehren & Lehrstellen**
+
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue?logo=python)](https://www.python.org)
+[![Flask 3.x](https://img.shields.io/badge/flask-3.x-000?logo=flask)](https://flask.palletsprojects.com)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Search and save Schnupperlehren & Lehrstellen in canton Zürich. Uses the [`berufswahl.zh.ch`](https://berufswahl.zh.ch) API.
+Search, save, filter, and annotate apprenticeship listings from the canton of Zürich — all in an Excel‑like dashboard.
+
+</div>
 
 ---
 
-## Features
+## ✨ Features
 
-- filter by type (Schnupperlehre / Lehrstelle), profession (multi-select tags), location
-- profession autocomplete — filtered by selected type
-- AJAX search — no full page reload
-- random results when no search query (30 items)
-- save / remove listings to personal list (heart icon)
-- manually update status: new → sent → waiting → rejection → success
-- notes on each listing (auto-save on blur / 2s idle)
-- copy email / phone / website to clipboard
-- open address in Google Maps
-- open listing on berufswahl.zh.ch
-- registration + login (session-based)
-- filter saved listings by status
+- **🔎 Smart search** — filter by type (Schnupperlehre / Lehrstelle), profession (multi‑select autocomplete), and location
+- **🎲 Discover mode** — random curated results when you don't know what to search for
+- **💾 Save & organize** — bookmark listings with one click, manage them in a personal dashboard
+- **📊 Status tracking** — mark progress: new → sent → waiting → rejection → success
+- **📝 Notes** — attach notes to each listing, auto‑saved on blur or after 2s idle
+- **📋 One‑click copy** — copy email, phone, or website to clipboard
+- **🗺️ Maps integration** — open any address directly in Google Maps
+- **👤 User accounts** — registration + session‑based login
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
 git clone https://github.com/EnotSM/SchnupperTracker.git
 cd SchnupperTracker
-
-# nix
-nix-shell
-
-# or venv
-python3 -m venv venv
-source venv/bin/activate
 pip install -r requirements.txt
-
 python app.py
 ```
 
-Open http://localhost:5000
+Open **http://localhost:5000**
 
-## Structure
+> **NixOS?** Use `nix-shell` instead of venv.
+
+## 🎮 Usage
+
+1. Open the app in your browser
+2. Select *Schnupperlehre* or *Lehrstelle*
+3. Start typing a profession name and pick from the autocomplete dropdown
+4. Optionally enter a location (e.g. *Zürich*, *Winterthur*)
+5. Click **Search** — results load via AJAX, no page reload
+6. Click the ❤️ icon to save a listing to your personal list
+7. Open **My List** to manage statuses, write notes, hide, or remove entries
+
+## 🏗️ Architecture
 
 ```
-CRUD/
-├── app.py                 # routes, API, caching, security
-├── config.py              # settings (secret key, session, cache)
-├── requirements.txt
-├── .secret_key            # auto-generated, gitignored
-├── professions_cache.json # 24h API cache, gitignored
-├── templates/
-│   ├── base.html          # nav, flash, footer, CSP meta
-│   ├── index.html         # search + results
-│   ├── dashboard.html     # saved listings with statuses
-│   ├── login.html
-│   └── register.html
-├── static/
-│   ├── app.js             # all frontend logic
-│   └── style.css
-└── AGENTS.md              # AI assistant notes (local only)
+app.py                Flask routes, API client, caching, pagination
+config.py             Settings (secret key, session, cache TTLs)
+templates/            Jinja2 templates (base, search, dashboard, auth)
+static/               Vanilla JS + CSS (Tailwind CDN)
 ```
 
-## Security
+The app talks to the [`berufswahl.zh.ch`](https://berufswahl.zh.ch) WordPress JSON REST API. Search results are paginated client‑side; saved listings live in a local SQLite database.
 
-- CSRF protection on all mutation endpoints (header + form field)
-- Rate limiting on login (5 attempts per 5 minutes per IP)
-- Session cookies: `HttpOnly`, `SameSite=Lax`, signed with persisted key
-- Content-Security-Policy headers
-- Passwords hashed via `werkzeug.security` (pbkdf2:sha256)
-- SQL injection prevented via parameterized queries
-- Jinja2 auto-escape for XSS prevention
+## 🛡️ Security
 
-## Configuration
+| Measure | Detail |
+|---------|--------|
+| CSRF | Token in meta tag + `X-CSRF-Token` header on all mutations |
+| Rate limiting | 5 login attempts per 5 minutes per IP |
+| Sessions | Signed cookies, `HttpOnly`, `SameSite=Lax` |
+| Passwords | `pbkdf2:sha256` via `werkzeug.security` |
+| SQL injection | Parameterized queries throughout |
+| XSS | Jinja2 auto‑escape, CSP headers |
+| Headers | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` |
+
+## 🛠️ Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `FLASK_DEBUG` | `1` | Enable debug mode |
+| `FLASK_DEBUG` | `1` | Debug mode |
 | `PORT` | `5000` | Server port |
-| `API_BASE_URL` | `https://admin.berufswahlportal.ch/wp-json/biz/v1` | API endpoint |
 | `DATABASE_FILE` | `schnupper_tracker.db` | SQLite filename |
-| `CACHE_DURATION` | `86400` | Professions cache TTL (seconds) |
-| `RESULT_CACHE_TTL` | `300` | In-memory result cache TTL (seconds) |
+| `CACHE_DURATION` | `86400` | Professions cache TTL (s) |
+| `RESULT_CACHE_TTL` | `300` | In‑memory result cache TTL (s) |
 | `SESSION_COOKIE_NAME` | `schnupper_session` | Session cookie name |
 
-## Caveats
+## ⚠️ Caveats
 
-- Tailwind via CDN (~3MB in dev, no purged build)
-- No dashboard pagination (all rows loaded client-side)
-- No email/notification system
+- Tailwind loaded via CDN (~3 MB in dev, no purged build)
+- Dashboard loads all rows client‑side (no server‑side pagination)
+- No email or notification system
 - No automated tests
 
-Not affiliated with canton Zürich. Powered by [`berufswahl.zh.ch`](https://berufswahl.zh.ch).
+## 📄 License
+
+[MIT](LICENSE) — free to use, modify, and distribute.
+
+---
+
+<div align="center">
+Not affiliated with the canton of Zürich. Powered by <a href="https://berufswahl.zh.ch">berufswahl.zh.ch</a>.
+</div>
