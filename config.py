@@ -2,23 +2,26 @@ import os
 import secrets
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("DATA_DIR", BASE_DIR)
 
-_SECRET_KEY_FILE = os.path.join(BASE_DIR, ".secret_key")
-if os.path.exists(_SECRET_KEY_FILE):
-    with open(_SECRET_KEY_FILE) as f:
-        SECRET_KEY = f.read().strip()
-else:
-    SECRET_KEY = secrets.token_hex(32)
-    with open(_SECRET_KEY_FILE, "w") as f:
-        f.write(SECRET_KEY)
+SECRET_KEY = os.environ.get("SECRET_KEY", "")
+if not SECRET_KEY:
+    _key_file = os.path.join(BASE_DIR, ".secret_key")
+    if os.path.exists(_key_file):
+        with open(_key_file) as f:
+            SECRET_KEY = f.read().strip()
+    else:
+        SECRET_KEY = secrets.token_hex(32)
+        with open(_key_file, "w") as f:
+            f.write(SECRET_KEY)
 
 API_BASE_URL = os.environ.get(
     "API_BASE_URL",
     "https://admin.berufswahlportal.ch/wp-json/biz/v1",
 )
 
-DATABASE = os.path.join(BASE_DIR, os.environ.get("DATABASE_FILE", "schnupper_tracker.db"))
-PROFESSIONS_CACHE = os.path.join(BASE_DIR, "professions_cache.json")
+DATABASE = os.path.join(DATA_DIR, os.environ.get("DATABASE_FILE", "schnupper_tracker.db"))
+PROFESSIONS_CACHE = os.path.join(DATA_DIR, "professions_cache.json")
 
 DEBUG = os.environ.get("FLASK_DEBUG", "1") == "1"
 
